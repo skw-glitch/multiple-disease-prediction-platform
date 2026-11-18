@@ -26,7 +26,7 @@ from reportlab.lib.styles import (
 
 # ---------- PAGE CONFIG ----------
 st.set_page_config(
-    page_title="Multiple Disease Prediction and Advisory Platform",
+    page_title="CareVista | Smart Disease Prediction and Risk Insights",
     layout="wide",
     page_icon="🩺"
 )
@@ -45,7 +45,7 @@ def generate_report_id():
     )
 
     return (
-        f"MDPAP-"
+        f"CV-"
         f"{datetime.now().year}-"
         f"{random_number}"
     )
@@ -484,9 +484,7 @@ def generate_medical_report(
 
     story.append(
         Paragraph(
-            "MULTIPLE DISEASE "
-            "PREDICTION AND "
-            "ADVISORY PLATFORM",
+            "CAREVISTA",
             title_style
         )
     )
@@ -733,8 +731,7 @@ st.markdown(
         font-size:42px;
         font-weight:800;
     ">
-        🩺 Multiple Disease Prediction
-        & Advisory Platform
+        🩺 CareVista
     </h1>
 
     <p style="
@@ -742,8 +739,7 @@ st.markdown(
         opacity:0.85;
         margin-top:0;
     ">
-        AI-powered healthcare screening
-        for early disease risk detection
+        Smart Disease Prediction and Risk Insights
     </p>
 
     </div>
@@ -813,12 +809,14 @@ patient_details_complete = (
 selected = option_menu(
     menu_title=None,
     options=[
+        "Home",
         "Diabetes Prediction",
         "Heart Disease Prediction",
         "Parkinsons Prediction",
         "Kidney Disease Prediction"
     ],
     icons=[
+        "house",
         "activity",
         "heart",
         "person",
@@ -869,9 +867,9 @@ with st.sidebar.expander(
 # ---------- VALIDATION ----------
 
 if (
-    not patient_details_complete
-    and
-    not admin_authenticated
+    selected != "Home"
+    and not patient_details_complete
+    and not admin_authenticated
 ):
 
     st.warning(
@@ -882,6 +880,95 @@ if (
 
     st.stop()
 
+
+
+# ===================== CAREVISTA HOME DASHBOARD =====================
+
+if selected == "Home":
+
+    st.title("Welcome to CareVista")
+    st.caption("Smart Disease Prediction and Risk Insights")
+    st.write(
+        "A machine-learning-based educational screening platform "
+        "for exploring risk indicators across four disease categories."
+    )
+
+    conn = sqlite3.connect(DB_PATH)
+    summary = pd.read_sql_query(
+        """
+        SELECT COUNT(*) AS total_predictions,
+               COUNT(DISTINCT disease) AS diseases_screened,
+               AVG(risk_score) AS average_risk
+        FROM prediction_history
+        """,
+        conn
+    )
+    recent = pd.read_sql_query(
+        """
+        SELECT created_at AS "Date & Time",
+               disease AS "Disease",
+               prediction AS "Screening Result",
+               risk_score AS "Risk Score (%)",
+               risk_level AS "Risk Level"
+        FROM prediction_history
+        ORDER BY id DESC
+        LIMIT 5
+        """,
+        conn
+    )
+    disease_counts = pd.read_sql_query(
+        """
+        SELECT disease AS Disease, COUNT(*) AS Predictions
+        FROM prediction_history
+        GROUP BY disease
+        ORDER BY Predictions DESC
+        """,
+        conn
+    )
+    conn.close()
+
+    total = int(summary.loc[0, "total_predictions"] or 0)
+    diseases = int(summary.loc[0, "diseases_screened"] or 0)
+    average = summary.loc[0, "average_risk"]
+    average_text = f"{average:.1f}%" if pd.notna(average) else "—"
+
+    m1, m2, m3 = st.columns(3)
+    m1.metric("Total Screenings", total)
+    m2.metric("Disease Categories", diseases)
+    m3.metric("Average Risk Score", average_text)
+
+    st.subheader("Explore Disease Screening")
+    st.caption("Choose a screening area from the navigation menu above.")
+
+    c1, c2, c3, c4 = st.columns(4)
+    cards = [
+        (c1, "🩸 Diabetes", "Glucose, BMI and other metabolic indicators"),
+        (c2, "❤️ Heart Disease", "Cardiovascular health indicators"),
+        (c3, "🗣️ Parkinson's", "Voice measurement indicators"),
+        (c4, "🫘 Kidney Disease", "Kidney function and clinical indicators")
+    ]
+    for col, heading, description in cards:
+        with col:
+            st.markdown(f"### {heading}")
+            st.write(description)
+
+    st.subheader("Screening Activity")
+    if total == 0:
+        st.info("No screening records yet. Your completed screenings will appear here.")
+    else:
+        left, right = st.columns([1, 1])
+        with left:
+            st.markdown("**Recent screenings**")
+            st.dataframe(recent, use_container_width=True, hide_index=True)
+        with right:
+            st.markdown("**Screenings by disease**")
+            if not disease_counts.empty:
+                st.bar_chart(disease_counts.set_index("Disease"))
+
+    st.info(
+        "CareVista is intended for educational screening and awareness only. "
+        "It does not provide a medical diagnosis. Consult a qualified healthcare professional."
+    )
 
 # ===================== DIABETES PREDICTION PAGE =====================
 
